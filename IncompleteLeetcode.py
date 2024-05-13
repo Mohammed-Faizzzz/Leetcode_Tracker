@@ -9,10 +9,13 @@ import os
 load_dotenv()
 
 bot = telegram.Bot(token=os.getenv('TELEBOT_TOKEN'))
-bbcgrpID = os.getenv('BBC_GRP_ID')
-testgrpID = os.getenv('TEST_GRP_ID')
+bbcgrpID_json = os.getenv('BBC_GRP_ID')
+testgrpID_json = os.getenv('TEST_GRP_ID')
+bbcgrpID = json.loads(bbcgrpID_json)
+testgrpID = json.loads(testgrpID_json)
 
-users = os.getenv('USERS')
+users_json = os.getenv('USERS')
+users = json.loads(users_json)
 
 current_date = date.today()
 str_current_date = str(current_date)
@@ -26,8 +29,11 @@ tele_incomplete_message = formatted_date + '\n' + 'Reminder to complete atleast 
 for user in users : 
     completedQuestions = []
     # print(len(completedQuestions))
+    print("user: ",user)
+    leetcode_username = user['leetcode']
+    print("leetcode_username: ",leetcode_username)
 
-    acceptedSubmissions = requests.get(f"https://alfa-leetcode-api.onrender.com/{user['leetcode']}/acSubmission") # should be in .env
+    acceptedSubmissions = requests.get(f"https://alfa-leetcode-api.onrender.com/{leetcode_username}/acSubmission") # should be in .env
     data_dict = json.loads(acceptedSubmissions.text)
 
     for submission in data_dict['submission']:

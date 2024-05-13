@@ -9,10 +9,13 @@ import os
 load_dotenv()
 
 bot = telegram.Bot(token=os.getenv('TELEBOT_TOKEN'))
-bbcgrpID = os.getenv('BBC_GRP_ID')
-testgrpID = os.getenv('TEST_GRP_ID')
+bbcgrpID_json = os.getenv('BBC_GRP_ID')
+testgrpID_json = os.getenv('TEST_GRP_ID')
+bbcgrpID = json.loads(bbcgrpID_json)
+testgrpID = json.loads(testgrpID_json)
 
-users = os.getenv('USERS')
+users_json = os.getenv('USERS')
+users = json.loads(users_json)
 
 current_date = date.today() - timedelta(days=1)
 str_current_date = str(current_date)
@@ -20,7 +23,7 @@ formatted_date = current_date.strftime("%d/%m/%Y")
 
 async def updateTeleChannel(text):
     print("running inside")
-    await bot.send_message(chat_id=testgrpID, text = text)
+    await bot.send_message(chat_id=bbcgrpID, text = text)
 
 # def updateGoogleSheet(str_current_date, completedQuestions):
 #     # You can implement the logic to update the Google Sheet here
