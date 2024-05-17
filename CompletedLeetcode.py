@@ -4,6 +4,7 @@ import telegram
 import asyncio
 from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
+from pytz import timezone
 import os
 
 load_dotenv()
@@ -17,7 +18,12 @@ testgrpID = json.loads(testgrpID_json)
 users_json = os.getenv('USERS')
 users = json.loads(users_json)
 
-current_date = date.today() - timedelta(days=1)
+sgt = timezone('Asia/Singapore')
+
+# Get the current date and time in your timezone
+now = datetime.now(sgt)
+
+current_date = now.date() - timedelta(days=1)
 str_current_date = str(current_date)
 formatted_date = current_date.strftime("%d/%m/%Y")
 
