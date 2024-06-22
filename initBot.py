@@ -1,12 +1,17 @@
 import threading
 import time
+
+import requests
 import telebot
 from dotenv import load_dotenv
 import os
 import schedule
 
+from tb_forms import TelebotForms, BaseForm, fields
+
 load_dotenv()
 bot = telebot.TeleBot(os.environ.get('BOT_KEY'))
+tbf = TelebotForms(bot)
 
 # Fetch group id from database for current bot id if present else None
 group_id = None
@@ -14,47 +19,67 @@ group_id = None
 # Fetch group members based on current group_id
 members = []
 
-# --------------------------------------------------------- Initialise -------------------------------------------------
+# API for leetcode
+leet_api = 'https://alfa-leetcode-api.onrender.com/'
 
-reply_text = "Hello! Reply to this message with your LeetCode username"
+
+# -------------------------------------- ADD LEETCODE USERNAME TO THE DATABASE --------------------------------------
+
+class LeetcodeRegisterForm(BaseForm):
+    update_name = 'leetcode_register_form'
+    form_title = 'Leetcode Register Form'
+    freeze_mode = True
+    close_form_but = False
+    default_step_by_step = True
+    submit_button_text = 'Confirm'
+    canceled_text = 'Cancel'
+
+    leetcode_username = fields.StrField("Leetcode username", "Enter your leetcode username")
 
 
-@bot.message_handler(commands=['init'])
-def initialize(message):
-    global group_id
-
-    if message.chat.type == 'private':
-        bot.reply_to(message, "Self tracker coming soon, for now add me to a group!")
+@bot.message_handler(commands=['register_leetcode_username'])
+def register_leetcode_username(message):
+    if message.chat.type == 'group':
+        bot.reply_to(message, "Please PM me to add your leetcode profile !!")
     else:
-
-        if group_id is None:
-            # Store group id of current bot id instance in the database
-            group_id = message.chat.id
-
-        sent_message = bot.send_message(message.chat.id, reply_text)
-        try:
-            bot.pin_chat_message(message.chat.id, sent_message.message_id)
-        except telebot.apihelper.ApiTelegramException as e:
-            bot.send_message(message.chat.id, "I don't have permission to pin messages. Please ensure I have the 'Pin Messages' permission.")
+        form = LeetcodeRegisterForm()
+        tbf.send_form(message.chat.id, form)
 
 
-@bot.message_handler(func=lambda message: message.reply_to_message and reply_text in message.reply_to_message.text)
-def get_leetcode_username(message):
-    user = message.from_user
+@tbf.form_submit_event('leetcode_register_form')
+def register_leetcode_username(call, form_data):
 
-    # To be stored in DB : tele id, leetcode username, group id
-    telegram_id = user.id
-    leetcode_username = message.text
-    global group_id
+    user_id = call.from_user.id
+    leetcode_username = form_data.leetcode_username
 
-    # Verify if leetcode username exists through api
-    print('Verifying username in leetcode')
+    print(f'User {user_id} : {leetcode_username}')
 
-    # Add to database
-    print('Add user to database')
+    # Here need to verify if the username is accurate
+    try:
+        res = requests.get(leet_api + leetcode_username.lower())
 
-    bot.send_message(message.chat.id,f"Thank you, {user.first_name}! Your LeetCode username {leetcode_username} has been registered.")
-    print(f"User {user.id} - {user.username} registered with LeetCode username: {leetcode_username}")
+        if res.status_code == 200:
+            res_json = res.json()
+            print(res_json)
+            if res_json['errors']:
+                bot.send_message(call.message.chat.id, 'User does not exist !')
+            else:
+                bot.send_message(call.message.chat.id, "Success")
+        else:
+            bot.send_message(call.message.chat.id, "Error has occured")
+    except requests.RequestException as e:
+        print(f'Error : {e}')
+        bot.send_message(call.message.chat.id, "Error has occured")
+
+
+@bot.message_handler(commands=['add_me'])
+def add_me(message):
+    if message.chat.type == 'private':
+        bot.reply_to(message, 'Please call this command in a group to add yourself in our tracker for that group !!')
+    else:
+        user_id = message.from_user.id
+        # Take note that chat id will be negative for groups !
+        print(f'user : {user_id} wants to be added to group {message.chat.id}')
 
 
 # ---------------------------------------------- Auto Reminders -------------------------------------------------------
