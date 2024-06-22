@@ -61,7 +61,7 @@ def register_leetcode_username(call, form_data):
         if res.status_code == 200:
             res_json = res.json()
             print(res_json)
-            if res_json['errors']:
+            if 'errors' in res_json:
                 bot.send_message(call.message.chat.id, 'User does not exist !')
             else:
                 bot.send_message(call.message.chat.id, "Success")
