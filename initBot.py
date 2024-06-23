@@ -6,7 +6,7 @@ import telebot
 from dotenv import load_dotenv
 import os
 import schedule
-
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from tb_forms import TelebotForms, BaseForm, fields
 
 load_dotenv()
@@ -21,6 +21,9 @@ members = []
 
 # API for leetcode
 leet_api = 'https://alfa-leetcode-api.onrender.com/'
+
+# Timings for reminders to be sent at
+chosen_timings = []
 
 
 # --------------------------------- Call Init to Get the Group ID for Auto Reminders --------------------------------
@@ -73,6 +76,65 @@ def register_lc_username(message):
                 print(f'Error : {e}')
                 bot.reply_to(message, "Error has occured")
 
+# ---------------------------------------------- Reminder Timing Form ------------------------------------------------
+
+
+
+form_active = False
+
+
+# Builds the inline keyboard for user to select the timings
+def build_keyboard(timings, chosen_timings, columns=4):
+    keyboard = InlineKeyboardMarkup()
+    row = []
+    for index, timing in enumerate(timings):
+        button_text = f'✅ {timing}' if timing in chosen_timings else timing
+        row.append(InlineKeyboardButton(text=button_text, callback_data=f'reminder_timing_entry_{timing}'))
+        if (index + 1) % columns == 0:
+            keyboard.row(*row)
+            row = []
+    if row:
+        # For any excess buttons we might have
+        keyboard.row(*row)
+    keyboard.add(InlineKeyboardButton(text='CONFIRM', callback_data='reminder_timing_entry_confirm'))
+    return keyboard
+
+
+@bot.message_handler(commands=['reminder_timings'])
+def send_reminder_timing_form(message):
+    global form_active
+    if not form_active and message.chat.type == 'group':
+        form_active = True
+        timings = [f"{i:02d}:00" for i in range(24)]
+
+        keyboard = build_keyboard(timings, chosen_timings)
+        bot.send_message(message.chat.id, 'Choose the timings for me to remind you all !', reply_markup=keyboard)
+    else:
+        bot.send_message(message.chat.id, 'Reminder timing selection is already active.')
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("reminder_timing_entry_"))
+def handle_reminder_time_selection(call):
+    global form_active
+    res = call.data.split("_")[-1]
+
+    if res == 'confirm':
+        form_active = False
+        bot.send_message(call.message.chat.id, f'Confirmed timings: {chosen_timings}')
+        chosen_timings.clear()  # Clear chosen timings after confirmation
+        bot.answer_callback_query(call.id, "Form closed")
+    else:
+        if res in chosen_timings:
+            chosen_timings.remove(res)
+        else:
+            chosen_timings.append(res)
+
+        # Update inline keyboard with updated selection
+        timings = [f"{i:02d}:00" for i in range(24)]
+        keyboard = build_keyboard(timings, chosen_timings)
+        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=keyboard)
+        bot.answer_callback_query(call.id, f"Selected {res}")
+
 # ---------------------------------------------- Auto Reminders -------------------------------------------------------
 
 
@@ -99,10 +161,11 @@ def remind_members():
         print('Group ID not set or no members to mention')
 
 
-# Schedule reminders to run at 09:00, 18:00, 23:00
-schedule.every().day.at("09:00").do(remind_members)
-schedule.every().day.at("18:00").do(remind_members)
-schedule.every().day.at("23:00").do(remind_members)
+# Schedule reminders to run at chosen timings
+for timing in chosen_timings:
+    schedule.every().day.at(timing).do(remind_members)
+
+schedule.every().day.at("20:05").do(remind_members)
 
 
 def run_scheduler():
