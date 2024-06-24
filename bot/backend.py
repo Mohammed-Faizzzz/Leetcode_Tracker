@@ -43,7 +43,7 @@ def insert_user_group(tele_id, group_id):
     if len(user_data) == 0:
         raise ValueError(f"User with tele id '{tele_id}' does not exist")
     
-    data, count = supabase.table('Group_Users').insert({"user_tele_id":tele_id, "group_id":group_id}).execute()
+    data, count = supabase.table('Group_Users').upsert({"user_tele_id":tele_id, "group_id":group_id}).execute()
     return data
 
 def check_user_leetcode_exists(leetcode_username):
@@ -57,32 +57,10 @@ def check_user_tele_exists(tele_id):
     return response.data
 
 
-def insert_group(group_id, bot_id):
-    try:
-        supabase.table('Group').upsert({
-            "group_id": group_id,
-            "bot_id": bot_id
-        }).execute()
-    except requests.RequestException as e:
-        print(f'Error : {e}')
-
-
 def add_user(username, tele_id, leetcode_username, group_id):
     try:
         insert_user(tele_id, username, leetcode_username)
         insert_user_group(tele_id, group_id)
-    except requests.RequestException as e:
-        print(f'Error : {e}')
-
-
-def get_group_id(bot_id):
-    try:
-        res = supabase.table('Group').select('*').eq('bot_id', bot_id).execute()
-        if len(res.data) == 0:
-            # Group not added
-            return None
-        else:
-            return res.data[0]['group_id']
     except requests.RequestException as e:
         print(f'Error : {e}')
 
@@ -100,6 +78,40 @@ def get_group_members(group_id):
                 users.append(user_data["User"])
 
             return users
+
+    except requests.RequestException as e:
+        print(f'Error : {e}')
+
+
+def insert_reminder_timings(group_id, chosen_timings):
+    try:
+        # First delete existing timings
+        supabase.table('Group_Reminders').delete().eq('group_id', group_id).execute()
+        # Now insert the new timings
+        supabase.table('Group_Reminders').upsert({
+            'group_id': group_id,
+            'timings': chosen_timings
+        }).execute()
+    except requests.RequestException as e:
+        print(f'Error : {e}')
+
+
+def get_reminder_timings(group_id):
+    try:
+        res = supabase.table('Group_Reminders').select('timings').eq('group_id', group_id).execute()
+
+        if len(res.data) == 0:
+            return []
+        else:
+            return res.data[0]['timings']
+    except requests.RequestException as e:
+        print(f'Error : {e}')
+
+def get_all_group_ids():
+    try:
+        res = supabase.table('Group_Users').select('group_id').execute()
+        group_ids = [g_data['group_id'] for g_data in res.data]
+        return group_ids
 
     except requests.RequestException as e:
         print(f'Error : {e}')
