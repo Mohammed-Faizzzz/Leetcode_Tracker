@@ -23,64 +23,55 @@ members = []
 leet_api = 'https://alfa-leetcode-api.onrender.com/'
 
 
-# -------------------------------------- ADD LEETCODE USERNAME TO THE DATABASE --------------------------------------
+# --------------------------------- Call Init to Get the Group ID for Auto Reminders --------------------------------
 
-class LeetcodeRegisterForm(BaseForm):
-    update_name = 'leetcode_register_form'
-    form_title = 'Leetcode Register Form'
-    freeze_mode = True
-    close_form_but = False
-    default_step_by_step = True
-    submit_button_text = 'Confirm'
-    canceled_text = 'Cancel'
+@bot.message_handler(commands=['start'])
+def init(message):
+    global group_id
+    group_id = message.chat.id
+    bot_id = bot.get_me().id
 
-    leetcode_username = fields.StrField("Leetcode username", "Enter your leetcode username")
+    print(f'group_id : {group_id} bot_id : {bot_id}')
 
+    # API POST to DB
 
-@bot.message_handler(commands=['register_leetcode_username'])
-def register_leetcode_username(message):
-    if message.chat.type == 'group':
-        bot.reply_to(message, "Please PM me to add your leetcode profile !!")
-    else:
-        form = LeetcodeRegisterForm()
-        tbf.send_form(message.chat.id, form)
+    # Once done, send a welcome message
+    bot.reply_to(message, "Hello everyone! I'm your LeetCode tracker bot, and I'm here to help you track your progress.\n \nTo get started, please register by sending a message in this format:\n '/add your_leetcode_username'.\n \n Looking forward to assisting you on your coding journey!")
 
 
-@tbf.form_submit_event('leetcode_register_form')
-def register_leetcode_username(call, form_data):
+# ------------------------------------------ Add Leetcode Username to DB --------------------------------------------
 
-    user_id = call.from_user.id
-    leetcode_username = form_data.leetcode_username
-
-    print(f'User {user_id} : {leetcode_username}')
-
-    # Here need to verify if the username is accurate
-    try:
-        res = requests.get(leet_api + leetcode_username.lower())
-
-        if res.status_code == 200:
-            res_json = res.json()
-            print(res_json)
-            if 'errors' in res_json:
-                bot.send_message(call.message.chat.id, 'User does not exist !')
-            else:
-                bot.send_message(call.message.chat.id, "Success")
-        else:
-            bot.send_message(call.message.chat.id, "Error has occured")
-    except requests.RequestException as e:
-        print(f'Error : {e}')
-        bot.send_message(call.message.chat.id, "Error has occured")
-
-
-@bot.message_handler(commands=['add_me'])
-def add_me(message):
+@bot.message_handler(commands=['add'])
+def register_lc_username(message):
     if message.chat.type == 'private':
-        bot.reply_to(message, 'Please call this command in a group to add yourself in our tracker for that group !!')
+        bot.reply_to(message, 'Please add me to a group !')
     else:
         user_id = message.from_user.id
-        # Take note that chat id will be negative for groups !
-        print(f'user : {user_id} wants to be added to group {message.chat.id}')
+        group_id = message.chat.id
 
+        command_lc_username = message.text.split()
+
+        if len(command_lc_username) > 1:
+            leetcode_username = command_lc_username[1].lower()
+            print(f'User : {user_id}, Group: {group_id}, lc_username: {leetcode_username}')
+
+            # Here need to verify if the username is accurate
+            try:
+                res = requests.get(leet_api + leetcode_username)
+
+                if res.status_code == 200:
+                    res_json = res.json()
+                    print(res_json)
+                    if 'errors' in res_json:
+                        bot.reply_to(message, 'User does not exist !')
+                    else:
+                        # Here we will add the lc username to the user if not and link this user to the current group
+                        bot.reply_to(message, "Success")
+                else:
+                    bot.reply_to(message, "Error has occured")
+            except requests.RequestException as e:
+                print(f'Error : {e}')
+                bot.reply_to(message, "Error has occured")
 
 # ---------------------------------------------- Auto Reminders -------------------------------------------------------
 
