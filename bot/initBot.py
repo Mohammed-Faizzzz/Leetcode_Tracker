@@ -6,8 +6,10 @@ from dotenv import load_dotenv
 import os
 import schedule
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime, date
 
-from bot.backend import add_user, get_group_members, insert_reminder_timings, get_all_group_ids, get_reminder_timings
+from bot.backend import add_user, get_group_members, insert_reminder_timings, get_all_group_ids, get_reminder_timings, \
+    get_submissions
 
 load_dotenv()
 bot = telebot.TeleBot(os.environ.get('BOT_KEY'))
@@ -26,7 +28,8 @@ def init(message):
     print(f'group_id : {group_id} bot_id : {bot_id}')
 
     # Once done, send a welcome message
-    bot.reply_to(message, "Hello everyone! I'm your LeetCode tracker bot, and I'm here to help you track your progress.\n \nTo get started, please register by sending a message in this format:\n '/add your_leetcode_username'.\n \n Looking forward to assisting you on your coding journey!")
+    bot.reply_to(message,
+                 "Hello everyone! I'm your LeetCode tracker bot, and I'm here to help you track your progress.\n \nTo get started, please register by sending a message in this format:\n '/add your_leetcode_username'.\n \n Looking forward to assisting you on your coding journey!")
 
 
 # ------------------------------------------ Add Leetcode Username to DB --------------------------------------------
@@ -57,13 +60,15 @@ def register_lc_username(message):
                         bot.reply_to(message, 'User does not exist !')
                     else:
                         # Here we will add the lc username to the user if not and link this user to the current group
-                        add_user(username=username, leetcode_username=leetcode_username, group_id=group_id, tele_id=tele_id)
+                        add_user(username=username, leetcode_username=leetcode_username, group_id=group_id,
+                                 tele_id=tele_id)
                         bot.reply_to(message, "Success")
                 else:
                     bot.reply_to(message, "Error has occured")
             except requests.RequestException as e:
                 print(f'Error : {e}')
                 bot.reply_to(message, "Error has occured")
+
 
 # ---------------------------------------------- Reminder Timing Form ------------------------------------------------
 
@@ -189,37 +194,52 @@ def schedule_45_minutes_past_hour():
         time_str = f"{hour:02d}:45"
         schedule.every().day.at(time_str).do(update_schedule_reminders)
 
-def has_completed_daily_task(leetcode_username):
-    # Based on leetcode_username -> fetch and verify they have completed at least 2 questions
-    return True
-
 
 def remind_members(group_id):
     members = get_group_members(group_id)
 
-    if group_id and members:
-        reminder_message = "Reminder to complete at least 2 questions before the day ends! "
+    if members:
+        reminder_message = date.today().strftime("%d/%m/%Y") + '\n' + '\n' + "Reminder to complete at least 2 questions before the day ends! "
 
         for member in members:
             try:
-                if has_completed_daily_task(member["leetcode_username"]):
+                submissions = get_submissions(member['leetcode_username'])
+                if len(submissions) < 2:
                     reminder_message += '\n' + f'@{member["username"]}'
             except telebot.apihelper.ApiTelegramException as e:
                 username = member["username"]
                 print(f"Failed to mention user {username}: {e}")
 
         bot.send_message(group_id, reminder_message)
-    else:
-        print('Group ID not set or no members to mention')
+
+
+def display_daily_result():
+    all_group_ids = get_all_group_ids()
+
+    for gid in all_group_ids:
+        members = get_group_members(gid)
+
+        res = date.today().strftime("%d/%m/%Y") + '\n' + '\n' + 'Congratulations on completing 2 questions today !!'
+
+        for member in members:
+            mem_res = f'@{member["username"]}'
+            submissions = get_submissions(member['leetcode_username'])
+            for s in submissions:
+                mem_res += '\n' + s["title"]
+
+            res += '\n' + mem_res
+
+        bot.send_message(gid, res)
 
 
 # Init calls
 update_schedule_reminders()
 schedule_45_minutes_past_hour()
+schedule.every().day.at("23:55").do(display_daily_result)
 
 # For testing scheduling -> hardcode the time and run the bot
-schedule.every().day.at("20:14").do(remind_members, group_id=-4258400247)
-schedule.every().day.at("20:15").do(remind_members, group_id=-4258400247)
+# schedule.every().day.at("21:12").do(remind_members, group_id=-4258400247)
+# schedule.every().day.at("21:13").do(remind_members, group_id=-4258400247)
 
 
 def run_scheduler():
