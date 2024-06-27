@@ -1,3 +1,4 @@
+from datetime import datetime, date, timedelta
 import os
 from dotenv import load_dotenv
 import requests
@@ -7,6 +8,9 @@ load_dotenv()
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
+
+# API for leetcode
+leet_api = 'https://alfa-leetcode-api.onrender.com/'
 
 
 # add try catch statements
@@ -107,6 +111,7 @@ def get_reminder_timings(group_id):
     except requests.RequestException as e:
         print(f'Error : {e}')
 
+
 def get_all_group_ids():
     try:
         res = supabase.table('Group_Users').select('group_id').execute()
@@ -115,3 +120,22 @@ def get_all_group_ids():
 
     except requests.RequestException as e:
         print(f'Error : {e}')
+
+
+def get_submissions(leetcode_username):
+    # Based on leetcode_username -> fetch and verify they have completed at least 2 questions
+    try:
+        res = requests.get(leet_api + f'{leetcode_username}/acSubmission')
+        data = res.json()['submission']
+        submissions = []
+
+        for s in data:
+            today = date.today()
+            s_date = datetime.fromtimestamp(int(s['timestamp'])).date()
+            if s_date == today:
+                submissions.append(s)
+
+        return submissions
+    except requests.RequestException as e:
+        print(f'Error : {e}')
+
